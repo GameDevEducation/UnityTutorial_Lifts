@@ -16,6 +16,9 @@ public class CharacterMotorConfig : ScriptableObject
     public float CharacterHeight = 1.8f;
     public float CharacterRadius = 0.4f;
 
+    [Header("UI")]
+    public float MaxInteractionDistance = 2f;
+
     [Header("General Movement")]
     public float WalkSpeed = 10f;
     public float GroundedThreshold = 0.1f;

@@ -4,6 +4,7 @@ using UnityEngine;
 using Cinemachine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 [System.Serializable]
 public class ControlSchemeChanged : UnityEvent<PlayerInput> {}
@@ -92,6 +93,26 @@ public class CharacterMotor : MonoBehaviour, IPausable
         _Internal_JumpInput = value.Get<float>() > 0.5f;
     }
 
+    public void OnFire(InputValue value)
+    {
+        if (value.Get<float>() > 0.5f)
+        {
+            PointerEventData pointerData = new PointerEventData(EventSystem.current);
+            pointerData.position = Mouse.current.position.ReadValue();
+
+            // perform the raycast
+            List<RaycastResult> results = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointerData, results);
+
+            // send through the click events
+            foreach(RaycastResult result in results)
+            {
+                if (result.distance < Config.MaxInteractionDistance)
+                    ExecuteEvents.Execute(result.gameObject, pointerData, ExecuteEvents.pointerClickHandler);
+            }
+        }
+    }
+
     protected bool _Internal_SprintInput;
     public void OnSprint(InputValue value)
     {
@@ -161,7 +182,7 @@ public class CharacterMotor : MonoBehaviour, IPausable
         RaycastHit hitResult;     
         float groundCheckDistance = Config.GroundedThreshold + (Config.CharacterHeight * 0.5f) - Config.CharacterRadius;
         float workingRadius = Config.CharacterRadius * (1f - Config.CollisionBuffer);
-        if (Physics.SphereCast(transform.position, workingRadius, Vector3.down, out hitResult, groundCheckDistance, Config.WalkableMask, QueryTriggerInteraction.Ignore))
+        if (Physics.SphereCast(CharacterRB.position, workingRadius, Vector3.down, out hitResult, groundCheckDistance, Config.WalkableMask, QueryTriggerInteraction.Ignore))
         {
             // check if the character is grounded
             IsGrounded = true;
@@ -244,7 +265,7 @@ public class CharacterMotor : MonoBehaviour, IPausable
                 IsJumping = true;
                 CharacterRB.drag = 0;
                 CharacterCollider.material = Config.MaterialWhenJumping;
-                JumpTargetY = transform.position.y + Config.JumpHeight;
+                JumpTargetY = CharacterRB.position.y + Config.JumpHeight;
 
                 // make sure the jump input is cleared (in case of being held)
                 _Internal_JumpInput = false;
@@ -260,8 +281,8 @@ public class CharacterMotor : MonoBehaviour, IPausable
 
                 // have we reached the maximum height?
                 float ceilingHitCheckRange = Config.JumpCeilingCheck + Config.CharacterHeight * 0.5f;
-                if (transform.position.y >= JumpTargetY ||
-                    Physics.Raycast(transform.position, Vector3.up, ceilingHitCheckRange, Config.CeilingMask, QueryTriggerInteraction.Ignore))
+                if (CharacterRB.position.y >= JumpTargetY ||
+                    Physics.Raycast(CharacterRB.position, Vector3.up, ceilingHitCheckRange, Config.CeilingMask, QueryTriggerInteraction.Ignore))
                 {
                     // if we hit the ceiling then zero out the velocity
                     velocity.y = 0;
@@ -287,7 +308,7 @@ public class CharacterMotor : MonoBehaviour, IPausable
                 UpdateFootstepAudio();
 
                 // run the look ahead from the feet
-                Vector3 stepCheckStart = transform.position - Vector3.up * (Config.CharacterHeight * 0.5f) + (Vector3.up * 0.05f);
+                Vector3 stepCheckStart = CharacterRB.position - Vector3.up * (Config.CharacterHeight * 0.5f) + (Vector3.up * 0.05f);
                 Vector3 stepCheckDirection = movementVector.normalized;
 
                 #if UNITY_EDITOR
@@ -317,7 +338,7 @@ public class CharacterMotor : MonoBehaviour, IPausable
                             // trying to step to a valid spot?
                             if (Vector3.Angle(Vector3.up, stepCheckHitResult.normal) < Config.MaxSlope)
                             {
-                                transform.position = stepCheckHitResult.point + Vector3.up * Config.CharacterHeight * 0.5f;
+                                CharacterRB.position = stepCheckHitResult.point + Vector3.up * Config.CharacterHeight * 0.5f;
                             }
                             #if UNITY_EDITOR
                             else
